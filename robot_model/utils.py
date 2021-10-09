@@ -51,7 +51,6 @@ def rpy2rot(roll, pitch, yaw):
         [-Sthe, Cthe * Sphi, Cthe * Cphi]
     ])
     assert rot.shape == (3, 3)
-    print(np.linalg.norm(rot))
     return rot
 
 def rot2omega(R):
