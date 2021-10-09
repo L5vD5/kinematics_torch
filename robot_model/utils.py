@@ -114,7 +114,7 @@ def rodrigues_torch(w, dt):
         wn = w/norm_w # rotation axis (unit vector)
         th = norm_w * dt # amount of rotation (rad)
         w_wedge = torch.FloatTensor([[0, -wn[2], wn[1]], [wn[2], 0, -wn[0]], [-wn[1], wn[0], 0]])
-        R = torch.FloatTensor(np.eye(3)) + w_wedge * np.sin(th) + torch.matrix_power(w_wedge, 2) * (1-torch.cos(th))
+        R = torch.FloatTensor(np.eye(3)) + w_wedge * torch.sin(th) + torch.matrix_power(w_wedge, 2) * (1-torch.cos(th))
     return R
 
 def find_route(ulink, query):

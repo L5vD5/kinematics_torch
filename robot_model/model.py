@@ -16,7 +16,7 @@ def mlp(udim, hdims, actv, output_actv):
         return nn.Sequential(*layers)
 
 class OffsetModel(nn.Module):
-    def __init__(self, nJoint, udim=2, hdims=[256], actv=nn.ReLU(), output_actv=None):
+    def __init__(self, nJoint, udim=2, hdims=[256], actv=nn.ReLU(), output_actv=nn.ReLU()):
         super(OffsetModel, self).__init__()
         self.output_actv = output_actv
         self.qnet = mlp(udim, hdims=hdims, actv=actv, output_actv=output_actv)
@@ -24,11 +24,12 @@ class OffsetModel(nn.Module):
         self.q = nn.Linear(in_features=hdims[-1], out_features=(nJoint))
         self.r = nn.Linear(in_features=hdims[-1], out_features=(nJoint))
         self.relu = nn.ReLU()
-        
+
     def forward(self, x):
         output = self.qnet(x)
         q = self.q(output)
         output = self.rnet(x)
         r = self.r(output)
-        r = self.relu(r)
+        ReLU = nn.ReLU()
+        r = ReLU(r)
         return q, r
