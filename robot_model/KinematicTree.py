@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 from torch._C import dtype
-from utils import rpy2rot, LinkNode, rodrigues, find_mother
+from utils import rpy2rot, LinkNode, rodrigues_torch, rodrigues, find_mother
 from model import OffsetModel
 from scipy.special import fresnel
 import matplotlib.pyplot as plt
@@ -41,7 +41,7 @@ class KinematicTree:
         if node_id != 1: # If node is not body
             mother_id = self.tree[node_id].mother
             self.tree[node_id].p = (self.tree[mother_id].R @ self.tree[node_id].b + self.tree[mother_id].p)
-            self.tree[node_id].R = self.tree[mother_id].R @ torch.FloatTensor(rodrigues(self.tree[node_id].a, self.tree[node_id].q.detach().numpy()))
+            self.tree[node_id].R = self.tree[mother_id].R @ torch.FloatTensor(rodrigues_torch(self.tree[node_id].a, self.tree[node_id].q.detach().numpy()))
 
         for child_id in self.tree[node_id].children:
             self.forward_kinematics(child_id)
@@ -63,15 +63,20 @@ print(model.parameters)
 optimizer = torch.optim.Adam(model.parameters())
 target = np.concatenate((x.reshape(-1, 1), y.reshape(-1, 1), np.zeros(shape=(interpolate,1))), axis=1)
 target = torch.FloatTensor(target)
-while(True):
+for epoch in range(1000):
     traj=torch.empty([0,3], requires_grad=True)
     qs, rs = model(x)
 
     for i in range(interpolate):
+        # for j in range(kt.N-1):
+        #     # a = rpy2rot(self.roll[i], self.pitch[i], self.yaw[i])
+        #     kt.links[j+1] = LinkNode(id=j+1, name='link'+str(j+1), children=[j+2], b=rs[i][j]*kt.b[j].T,  a=[kt.roll[j].detach().numpy(), kt.pitch[j].detach().numpy(), kt.yaw[j].detach().numpy()], q=qs[i][j])
+        # kt.links[kt.N] = LinkNode(id=kt.N, name='link'+str(kt.N), children=[0], b=rs[i][kt.N-1]*kt.b[kt.N-1].T,  a=[kt.roll[kt.N-1].detach().numpy(), kt.pitch[kt.N-1].detach().numpy(), kt.yaw[kt.N-1].detach().numpy()], q=qs[i][kt.N-1])
+
         for j in range(kt.N-1):
             # a = rpy2rot(self.roll[i], self.pitch[i], self.yaw[i])
-            kt.links[j+1] = LinkNode(id=j+1, name='link'+str(j+1), children=[j+2], b=rs[i][j]*kt.b[j].T,  a=[kt.roll[j].detach().numpy(), kt.pitch[j].detach().numpy(), kt.yaw[j].detach().numpy()], q=qs[i][j])
-        kt.links[kt.N] = LinkNode(id=kt.N, name='link'+str(kt.N), children=[0], b=rs[i][kt.N-1]*kt.b[kt.N-1].T,  a=[kt.roll[kt.N-1].detach().numpy(), kt.pitch[kt.N-1].detach().numpy(), kt.yaw[kt.N-1].detach().numpy()], q=qs[i][kt.N-1])
+            kt.links[j+1] = LinkNode(id=j+1, name='link'+str(j+1), children=[j+2], b=rs[i][j]*kt.b[j].T,  a=torch.FloatTensor([kt.roll[j], kt.pitch[j], kt.yaw[j]]), q=qs[i][j])
+        kt.links[kt.N] = LinkNode(id=kt.N, name='link'+str(kt.N), children=[0], b=rs[i][kt.N-1]*kt.b[kt.N-1].T,  a=torch.FloatTensor([kt.roll[kt.N-1], kt.pitch[kt.N-1], kt.yaw[kt.N-1]]), q=qs[i][kt.N-1])
 
         kt.tree = find_mother(kt.links, 1)
         kt.tree[1].p = kt.root_positions.T
@@ -84,8 +89,8 @@ while(True):
     
     loss = F.mse_loss(traj.squeeze(), target.squeeze(), reduction='sum')
 
-    print(loss)
-    
+    print(epoch, loss)
+
     fig = plt.figure()
     ax = plt.axes(projection='3d')
     plt.plot(target[:,0], target[:,1], target[:,2], c='k')

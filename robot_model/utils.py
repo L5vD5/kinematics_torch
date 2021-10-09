@@ -2,6 +2,8 @@ from dataclasses import dataclass
 import numpy as np
 from typing import List
 
+import torch
+
 
 @dataclass
 class LinkNode:
@@ -93,6 +95,26 @@ def rodrigues(w, dt):
         th = norm_w * dt # amount of rotation (rad)
         w_wedge = np.array([[0, -wn[2], wn[1]], [wn[2], 0, -wn[0]], [-wn[1], wn[0], 0]])
         R = np.eye(3) + w_wedge * np.sin(th) + np.linalg.matrix_power(w_wedge, 2) * (1-np.cos(th))
+    return R
+
+def rodrigues_torch(w, dt):
+    """This returns SO(3) from so(3)
+
+    Args:
+        w: should be a (3,1) size vector
+        dt ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    norm_w = torch.linalg.norm(w)
+    if norm_w < 1e-10: # TODO: Find more consistent way to manage epsilon
+        R = torch.FloatTensor(np.eye(3))
+    else:
+        wn = w/norm_w # rotation axis (unit vector)
+        th = norm_w * dt # amount of rotation (rad)
+        w_wedge = torch.FloatTensor([[0, -wn[2], wn[1]], [wn[2], 0, -wn[0]], [-wn[1], wn[0], 0]])
+        R = torch.FloatTensor(np.eye(3)) + w_wedge * np.sin(th) + torch.matrix_power(w_wedge, 2) * (1-torch.cos(th))
     return R
 
 def find_route(ulink, query):
