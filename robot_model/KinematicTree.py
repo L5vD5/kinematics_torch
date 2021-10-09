@@ -29,7 +29,7 @@ class KinematicTree:
         self.b = torch.rand(self.N, 3, requires_grad=True)
 
         # root position
-        self.root_positions = torch.Tensor([0, 0, 0])
+        self.root_positions = torch.Tensor([0, 0, 0.2])
 
         self.device = device
 
@@ -47,8 +47,8 @@ class KinematicTree:
 def update():
     return None
 
-nJoint = 10
-interpolate = 200
+nJoint = 8
+interpolate = 25
 model = OffsetModel(udim=1, nJoint=nJoint)
 u = np.linspace(0, 2, interpolate)
 
@@ -89,7 +89,10 @@ for epoch in range(100000000):
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
+    # print('hey', list(model.qnet.parameters())[0].grad)
     # print('hey', list(model.rnet.parameters())[0].grad)
+    # print('hey', kt.rpy.grad)
+    # print('hey', kt.b.grad)
     
     if(epoch % 100 == 0):
         fig = plt.figure()
