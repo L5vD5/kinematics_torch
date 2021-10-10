@@ -1,3 +1,4 @@
+from matplotlib import animation
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -5,6 +6,8 @@ from utils import rpy2rot, LinkNode, rodrigues_torch, rodrigues, find_mother
 from model import OffsetModel
 from scipy.special import fresnel
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from mpl_toolkits.mplot3d import Axes3D
 
 print(torch.__version__)
 
@@ -65,6 +68,8 @@ target = torch.FloatTensor(target)
 
 for epoch in range(100000000):
     traj=torch.empty([0,3])
+    pjoints=torch.empty([0,nJoint,3])
+
     input = torch.Tensor(u.reshape(-1, 1))
     qs, rs = model(input)
     for i in range(interpolate):
@@ -78,9 +83,11 @@ for epoch in range(100000000):
         kt.tree[1].R = torch.FloatTensor(np.eye(3))
 
         kt.forward_kinematics(1)
-        # print(np.concatenate((y.reshape(-1, 1), np.zeros(shape=(interpolate,2))), axis=1))
+        pjoint = torch.empty([0, 3])
+        for j in range(nJoint):
+            pjoint = torch.cat((pjoint, torch.reshape(kt.tree[j+1].p, (-1, 3))), dim=0)
+        pjoints = torch.cat((pjoints, torch.reshape(pjoint, (-1, nJoint, 3))), dim=0)
         traj = torch.cat((traj, torch.reshape(kt.tree[nJoint].p, (-1, 3))), dim=0)
-        # print(traj.shape, target.shape)
     
     loss = F.mse_loss(traj.squeeze(), target.squeeze(), reduction='sum')
 
@@ -93,11 +100,29 @@ for epoch in range(100000000):
     # print('hey', list(model.rnet.parameters())[0].grad)
     # print('hey', kt.rpy.grad)
     # print('hey', kt.b.grad)
-    
     if(epoch % 100 == 0):
         fig = plt.figure()
-        ax = plt.axes(projection='3d')
+        ax = fig.add_subplot(projection='3d')
+
+        def update(frame, data, data2, line, line2):
+            line.set_data(data[:2, :frame])
+            line.set_3d_properties(data[2, :frame])
+            line2.set_data(data2[frame, 0:nJoint, 0], data2[frame, 0:nJoint, 1])
+            line2.set_3d_properties(data2[frame, 0:nJoint, 2])
+            return line
+        
+        data = traj.detach().numpy().T
+        data2 = pjoints.detach().numpy()
+        line, = ax.plot(data[0, 0:1], data[1, 0:1], data[2, 0:1], 'bo')
+        line2, = ax.plot(data2[0, 0:nJoint, 0], data2[0, 0:nJoint, 1], data2[0, 0:nJoint, 2], '.-')
+
+        ax.set_xlim3d([-1.0, 1.0])
+        ax.set_ylim3d([-1.0, 1.0])
+        ax.set_zlim3d([-1.0, 1.0])
+
         plt.plot(target[:,0], target[:,1], target[:,2], c='k')
-        plt.plot(traj.detach().numpy()[:,0], traj.detach().numpy()[:,1], traj.detach().numpy()[:,2])
+        ani = FuncAnimation(fig, update, fargs=[data, data2, line, line2], frames=range(interpolate))
+        # plt.plot(traj.detach().numpy()[t,0], traj.detach().numpy()[t,1], traj.detach().numpy()[t,2])
         plt.show()
+
         

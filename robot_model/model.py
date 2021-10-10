@@ -30,6 +30,5 @@ class OffsetModel(nn.Module):
         q = self.q(output)
         output = self.rnet(x)
         r = self.r(output)
-        ReLU = nn.ReLU()
-        r = ReLU(r)
+        r = self.relu(r)
         return q, r
