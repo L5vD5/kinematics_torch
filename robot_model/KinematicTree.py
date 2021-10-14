@@ -8,7 +8,7 @@ from scipy.special import fresnel
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
-
+import random
 print(torch.__version__)
 
 class KinematicTree:
@@ -50,29 +50,26 @@ class KinematicTree:
 def update():
     return None
 
-nJoint = 8
-interpolate = 25
-model = OffsetModel(udim=1, nJoint=nJoint)
-u = np.linspace(0, 2, interpolate)
-
-x = fresnel(u)[0]
-y = fresnel(u)[1]
-x = torch.FloatTensor(x.reshape(-1, 1))
+files = [np.loadtxt('target/2dim_log_spiral_{}.txt'.format(i+1), delimiter = ' ', skiprows = 1, dtype = 'float') for i in range(1000)]
+target_data = np.array(files)
+control = target_data[:,:,3:5].reshape(-1,2)
+target_position = target_data[:,:,0:3].reshape(-1,3)
+nJoint = 10
+nBatch = 300
+model = OffsetModel(udim=2, nJoint=nJoint)
 
 kt = KinematicTree(nJoint)
 
 params = list(model.parameters())+list([kt.rpy])+list([kt.b])
 optimizer = torch.optim.Adam(params)
-target = np.concatenate((x.reshape(-1, 1), y.reshape(-1, 1), np.zeros(shape=(interpolate,1))), axis=1)
-target = torch.FloatTensor(target)
-
 for epoch in range(100000000):
+    randidx = random.sample(range(len(control)),nBatch)
+    train_control = torch.Tensor(control[randidx])
+    train_position = torch.Tensor(target_position[randidx])
     traj=torch.empty([0,3])
     pjoints=torch.empty([0,nJoint,3])
-
-    input = torch.Tensor(u.reshape(-1, 1))
-    qs, rs = model(input)
-    for i in range(interpolate):
+    qs, rs = model(train_control)
+    for i in range(nBatch):
         for j in range(kt.N-1):
             # a = rpy2rot(self.roll[i], self.pitch[i], self.yaw[i])
             kt.links[j+1] = LinkNode(id=j+1, name='link'+str(j+1), children=[j+2], b=rs[i][j]*kt.b[j].T,  a=kt.rpy[j], q=qs[i][j])
@@ -89,8 +86,7 @@ for epoch in range(100000000):
         pjoints = torch.cat((pjoints, torch.reshape(pjoint, (-1, nJoint, 3))), dim=0)
         traj = torch.cat((traj, torch.reshape(kt.tree[nJoint].p, (-1, 3))), dim=0)
     
-    loss = F.mse_loss(traj.squeeze(), target.squeeze(), reduction='sum')
-
+    loss = F.mse_loss(traj, train_position, reduction='sum')
     print(epoch, loss)
 
     optimizer.zero_grad()
@@ -100,7 +96,30 @@ for epoch in range(100000000):
     # print('hey', list(model.rnet.parameters())[0].grad)
     # print('hey', kt.rpy.grad)
     # print('hey', kt.b.grad)
+
+    # Eval
     if(epoch % 100 == 0):
+        traj=torch.empty([0,3])
+        pjoints=torch.empty([0,nJoint,3])
+        train_control = torch.Tensor(control[0:299])
+        train_position = torch.Tensor(target_position[0:299])
+        qs, rs = model(train_control)
+        for i in range(299):
+            for j in range(kt.N-1):
+                # a = rpy2rot(self.roll[i], self.pitch[i], self.yaw[i])
+                kt.links[j+1] = LinkNode(id=j+1, name='link'+str(j+1), children=[j+2], b=rs[i][j]*kt.b[j].T,  a=kt.rpy[j], q=qs[i][j])
+            kt.links[kt.N] = LinkNode(id=kt.N, name='link'+str(kt.N), children=[0], b=rs[i][kt.N-1]*kt.b[kt.N-1].T,  a=kt.rpy[j], q=qs[i][kt.N-1])
+
+            kt.tree = find_mother(kt.links, 1)
+            kt.tree[1].p = kt.root_positions.T
+            kt.tree[1].R = torch.FloatTensor(np.eye(3))
+
+            kt.forward_kinematics(1)
+            pjoint = torch.empty([0, 3])
+            for j in range(nJoint):
+                pjoint = torch.cat((pjoint, torch.reshape(kt.tree[j+1].p, (-1, 3))), dim=0)
+            pjoints = torch.cat((pjoints, torch.reshape(pjoint, (-1, nJoint, 3))), dim=0)
+            traj = torch.cat((traj, torch.reshape(kt.tree[nJoint].p, (-1, 3))), dim=0)
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
 
@@ -116,12 +135,12 @@ for epoch in range(100000000):
         line, = ax.plot(data[0, 0:1], data[1, 0:1], data[2, 0:1], 'bo')
         line2, = ax.plot(data2[0, 0:nJoint, 0], data2[0, 0:nJoint, 1], data2[0, 0:nJoint, 2], '.-')
 
-        ax.set_xlim3d([-1.0, 1.0])
-        ax.set_ylim3d([-1.0, 1.0])
-        ax.set_zlim3d([-1.0, 1.0])
+        ax.set_xlim3d([-50.0, 50.0])
+        ax.set_ylim3d([-50.0, 50.0])
+        ax.set_zlim3d([-50.0, 50.0])
 
-        plt.plot(target[:,0], target[:,1], target[:,2], c='k')
-        ani = FuncAnimation(fig, update, fargs=[data, data2, line, line2], frames=range(interpolate))
+        plt.plot(train_position[:,0], train_position[:,1], train_position[:,2], c='k')
+        ani = FuncAnimation(fig, update, fargs=[data, data2, line, line2], frames=range(299))
         # plt.plot(traj.detach().numpy()[t,0], traj.detach().numpy()[t,1], traj.detach().numpy()[t,2])
         plt.show()
 
