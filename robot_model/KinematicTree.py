@@ -61,7 +61,6 @@ print(model.parameters)
 train_idx = random.sample(range(1000), nTrain)
 eval_idx = list(range(1000))
 for i in train_idx:
-    print(i)
     eval_idx.remove(i)
 control = target_data[train_idx,:,3:5].reshape(-1,2)
 target_position = target_data[train_idx,:,0:3].reshape(-1,3)
@@ -77,7 +76,6 @@ for epoch in range(100000000):
     qs, rs = model(train_control)
     for i in range(nBatch):
         for j in range(kt.N-1):
-            # a = rpy2rot(self.roll[i], self.pitch[i], self.yaw[i])
             kt.links[j+1] = LinkNode(id=j+1, name='link'+str(j+1), children=[j+2], b=rs[i][j]*kt.b[j].T,  a=kt.rpy[j], q=qs[i][j])
         kt.links[kt.N] = LinkNode(id=kt.N, name='link'+str(kt.N), children=[0], b=rs[i][kt.N-1]*kt.b[kt.N-1].T,  a=kt.rpy[j], q=qs[i][kt.N-1])
 
