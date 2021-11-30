@@ -1,8 +1,9 @@
 import torch
+import torch.nn as nn
 from .utils import rpy2rot, LinkNode, rodrigues_torch, rodrigues, find_mother
 print(torch.__version__)
 
-class KinematicTree:
+class KinematicTree(nn.Module):
     """Custom Model Class"""
 
     def __init__(self, N, tree_name='kinematic_tree', device='cpu'):
@@ -14,6 +15,7 @@ class KinematicTree:
             root_name (str, optional): name of root joint. Defaults to 'Hips'.
             device (str, optional): device to use. Defaults to 'cpu'.
         """
+        super(KinematicTree, self).__init__()
         self.root_name = tree_name
         self.N = N # num of joint
 
@@ -23,7 +25,7 @@ class KinematicTree:
         self.b = torch.rand(self.N, 3, requires_grad=True)
 
         # root position
-        self.root_positions = torch.Tensor([0, 0, 0.2])
+        self.root_positions = torch.Tensor([0, 0, 0])
 
         self.device = device
 
