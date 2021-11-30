@@ -5,23 +5,20 @@ import numpy as np
 from .utils import LinkNode, find_mother
 
 class KinematicModel:
-  def __init__(self, nJoint = 8, udim = 2, nBatch = 300, nTrain = 700):
+  def __init__(self, nJoint = 8, udim = 2):
     self.nJoint = nJoint
     self.udim = udim
-    self.nBatch = nBatch
-    self.nTrain = nTrain
     self.model = OffsetModel(udim=udim, nJoint=nJoint)
     self.kt = KinematicTree(nJoint)
 
   def predict(self, train_control, eval=False):
     nJoint = self.nJoint
     kt = self.kt
-    nBatch = 299 if eval else self.nBatch
     
     traj=torch.empty([0,3])
     pjoints=torch.empty([0,nJoint,3])
     qs, rs = self.model(train_control)
-    for i in range(nBatch):
+    for i in range(len(qs)):
         for j in range(kt.N-1):
             kt.links[j+1] = LinkNode(id=j+1, name='link'+str(j+1), children=[j+2], b=rs[i][j]*kt.b[j].T,  a=kt.rpy[j], q=qs[i][j])
         kt.links[kt.N] = LinkNode(id=kt.N, name='link'+str(kt.N), children=[0], b=rs[i][kt.N-1]*kt.b[kt.N-1].T,  a=kt.rpy[j], q=qs[i][kt.N-1])

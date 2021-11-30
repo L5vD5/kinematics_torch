@@ -17,7 +17,7 @@ def main():
   nJoint = 5
   train_idx = random.sample(range(1000), nTrain)
   eval_idx = list(range(1000))
-  km = KinematicModel(nJoint = 5, nBatch = nBatch, nTrain = nTrain)
+  km = KinematicModel(nJoint = 5)
 
   # folding
   for i in train_idx:
@@ -81,7 +81,7 @@ def main():
               ax.set_zlim3d([-50.0, 50.0])
 
               plt.plot(eval_train_position[:,0], eval_train_position[:,1], eval_train_position[:,2], c='k')
-              ani = FuncAnimation(fig, update, fargs=[data, data2, line, line2], frames=range(299))
+              ani = FuncAnimation(fig, update, fargs=[data, data2, line, line2], frames=range(299), interval=1)
               # plt.plot(traj.detach().numpy()[t,0], traj.detach().numpy()[t,1], traj.detach().numpy()[t,2])
               loss = F.mse_loss(eval_traj, eval_train_position)
 
